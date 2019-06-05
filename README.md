@@ -83,8 +83,8 @@ scoop install gocard
 
 ## Support
 
-<a href="https://www.buymeacoffee.com/50onA1pjc" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="margin-left: 5px; height: auto !important; width: auto !important;" /></a>
+<a href="https://www.buymeacoffee.com/50onA1pjc" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: auto !important; width: auto !important;" /></a>
 
-<a href="https://www.paypal.me/WMcNamee" target="_blank"><img src="https://user-images.githubusercontent.com/903488/57995914-6ecbeb00-7a79-11e9-9f04-e5c7170a8d8a.png" alt="Paypal Donate" style="height: 65px !important;width: auto !important;" /></a>
+<a href="https://www.paypal.me/WMcNamee" target="_blank"><img src="https://user-images.githubusercontent.com/903488/58933498-4cde9380-871c-11e9-88a5-455ed1d14380.png" alt="Paypal Donate" style="height: auto !important;width: auto !important;" /></a>
 
 _Icons made by [Freepik](https://www.freepik.com) from [www.flaticon.com](http://www.flaticon.com) is licensed by [CC 3.0 BY](http://creativecommons.org/licenses/by/3.0/)_
