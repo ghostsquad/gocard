@@ -1,80 +1,206 @@
 package main
 
 import (
-    "time"
 	"fmt"
-	"html/template"
-    "os"
-    "syscall"
-    "os/signal"
-    "github.com/pkg/errors"
-	"github.com/spf13/cobra"
-	"github.com/go-kit/kit/log"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
+
+	rice "github.com/GeertJohan/go.rice"
+	"github.com/fsnotify/fsnotify"
 	"github.com/ghostsquad/go-timejumper"
-    "github.com/oklog/run"
-    "github.com/fsnotify/fsnotify"
+	"github.com/go-kit/kit/log"
+	"github.com/gorilla/websocket"
+	oauth2ns "github.com/nmrshll/oauth2-noserver"
+	"github.com/oklog/run"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/sheets/v4"
 )
 
-const renderedCards = "index.html"
+var ClientID string
+var ClientSecret string
 
 type CardData struct {
 }
 
-func main() {
-    clock := timejumper.RealClock{}
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
 
-    defaultTimestampUTC := log.TimestampFormat(
+func handler(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	if conn == nil {
+		fmt.Println("conn is nil")
+	}
+}
+
+func main() {
+	clock := timejumper.RealClock{}
+
+	defaultTimestampUTC := log.TimestampFormat(
 		func() time.Time { return clock.Now().UTC() },
 		time.RFC3339Nano,
 	)
 
-    var logger log.Logger
+	var logger log.Logger
 	{
 		logger = log.NewLogfmtLogger(os.Stderr)
 		logger = log.With(logger, "ts", defaultTimestampUTC)
 		logger = log.With(logger, "caller", log.DefaultCaller)
-    }
+	}
 
-    
-    watcher, err := fsnotify.NewWatcher()
-    defer watcher.Close()
-    if err != nil {
-        logger.Log("event", "exit", "reason", err)
-        os.Exit(1)
-    }
-    
-    runGroup := run.Group{}
+	jsbox := rice.MustFindBox("dist/js")
+	liveReloadjs, err := jsbox.String("livereload.min.js")
+	if err != nil {
+		logger.Log("event", "exit", "reason", err)
+		os.Exit(1)
+	}
+
+	if liveReloadjs == "" {
+		logger.Log("event", "exit", "reason", "liveReloadJs is empty")
+		os.Exit(1)
+	}
+
+	watcher, err := fsnotify.NewWatcher()
+	defer watcher.Close()
+	if err != nil {
+		logger.Log("event", "exit", "reason", err)
+		os.Exit(1)
+	}
+
+	runGroup := run.Group{}
 	{
 		cancelInterrupt := make(chan struct{})
 		runGroup.Add(
-            createSignalWatcher(cancelInterrupt), 
-            func(error) {
-			    close(cancelInterrupt)
-            })
-    }
-    {
-        runGroup.Add(
-            func() error {
-                
-            },
-            func(error) {
-			   
-            })
-    }
+			createSignalWatcher(cancelInterrupt),
+			func(error) {
+				close(cancelInterrupt)
+			})
+	}
 
-    t := template.Must(template.New("email.tmpl").Parse(indexTmpl))
+	fmt.Printf("%+v\n", ClientID)
 
-	err := t.Execute(os.Stdout, getCardData())
+	config := &oauth2.Config{
+		ClientID:     ClientID,
+		ClientSecret: ClientSecret,
+		Endpoint:     google.Endpoint,
+		Scopes:       []string{"https://www.googleapis.com/auth/spreadsheets.readonly"},
+	}
+
+	//authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+
+	client, err := oauth2ns.AuthenticateUser(config)
 	if err != nil {
-        logger.Log("event", "exit", "reason", errors.Wrap(err, "Failed to render template!")
+		logger.Log("error", err)
 		os.Exit(1)
 	}
+
+	srv, err := sheets.New(client.Client)
+	if err != nil {
+		logger.Log("error", fmt.Sprintf("Unable to retrieve Sheets client: %v", err))
+		os.Exit(1)
+	}
+
+	err = watcher.Add("./content")
+
+	if srv == nil {
+		logger.Log("error", fmt.Sprintf("srv is nil: %v", err))
+	}
+
+	// for {
+	// 	select {
+	// 	case event := <-watcher.Events:
+	// 		lastChangedSources := map[string]struct{}{event.Name: {}}
+
+	// 		if !shouldRebuild(event.Name, event.Op) {
+	// 			continue
+	// 		}
+
+	// 		for {
+	// 			if len(lastChangedSources) < 1 {
+	// 				break
+	// 			}
+
+	// 			rebuild <- lastChangedSources
+
+	// 			// Zero out the last set of changes and start
+	// 			// accumulating.
+	// 			lastChangedSources = nil
+
+	// 			// Wait until rebuild is finished. In the meantime,
+	// 			// accumulate new events that come in on the watcher's
+	// 			// channel and prepare for the next loop.
+	// 		INNER_LOOP:
+	// 			for {
+	// 				select {
+	// 				case <-rebuildDone:
+	// 					break INNER_LOOP
+	// 				case event := <-watchEvents:
+	// 					if !shouldRebuild(event.Name, event.Op) {
+	// 						continue
+	// 					}
+
+	// 					if lastChangedSources == nil {
+	// 						lastChangedSources = make(map[string]struct{})
+	// 					}
+
+	// 					lastChangedSources[event.Name] = struct{}{}
+	// 				}
+	// 			}
+	// 		}
+
+	// 		logger.Log("event", event)
+	// 	}
+	// }
+
+	// t := template.Must(template.New("email.tmpl").Parse(indexTmpl))
+
+	// err := t.Execute(os.Stdout, getCardData())
+	// if err != nil {
+	//     logger.Log("event", "exit", "reason", errors.Wrap(err, "Failed to render template!")
+	// 	os.Exit(1)
+	// }
 
 	logger.Log("event", "exit", "reason", runGroup.Run())
 }
 
 func getCardData() *CardData {
 	return &CardData{}
+}
+
+func shouldRebuild(path string, op fsnotify.Op) bool {
+	base := filepath.Base(path)
+
+	// Mac OS' worst mistake.
+	if base == ".DS_Store" {
+		return false
+	}
+
+	// Vim creates this temporary file to see whether it can write
+	// into a target directory. It screws up our watching algorithm,
+	// so ignore it.
+	if base == "4913" {
+		return false
+	}
+
+	// A special case, but ignore creates on files that look like
+	// Vim backups.
+	if strings.HasSuffix(base, "~") {
+		return false
+	}
+
+	return true
 }
 
 // This function just sits and waits for ctrl-C

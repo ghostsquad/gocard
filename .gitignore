@@ -10,3 +10,21 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+.vscode
+
+# Built executables
+/gocard
+/gocard.exe
+
+# build secrets
+/build.env
+
+/node_modules
+/dist
+
+# gomod vendor
+/vendor
+
+# rice-box generated file
+/rice-box.go

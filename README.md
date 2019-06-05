@@ -58,6 +58,29 @@ If you are on a Windows machine and use Scoop for package management, you can in
 scoop install gocard
 ```
 
+## Development
+
+1. Copy `build.example.env` to `build.env`
+2. fill in your Google API Oauth 2.0 Credentials, described here: [Using OAuth 2.0 to Access Google APIs]([Using OAuth 2.0 to Access Google APIs](https://developers.google.com/identity/protocols/OAuth2))
+3. Run this
+
+    ```bash
+    go mod vendor
+    go get github.com/GeertJohan/go.rice/rice
+
+    source ./build.env
+    export GOCARD_CLIENT_ID
+    export GOCARD_CLIENT_SECRET
+
+    yarn --frozen-lockfile
+    rm -rf ./dist
+    mkdir -p ./dist/js
+    cp ./node_modules/livereload-js/dist/livereload.min.js ./dist/js
+
+    rice embed-go
+    go build -ldflags "-X main.ClientID=${GOCARD_CLIENT_ID} -X main.ClientSecret=${GOCARD_CLIENT_SECRET}"
+    ```
+
 ## Support
 
 <a href="https://www.buymeacoffee.com/50onA1pjc" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="margin-left: 5px; height: auto !important; width: auto !important;" /></a>
